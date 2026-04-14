@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Pytest
+.pytest_cache/
+
+# Generated model artifacts (recreated by run_pipeline.py)
+graduate_admission_prediction/artifacts/*.joblib
+graduate_admission_prediction/artifacts/*.json
+graduate_admission_prediction/artifacts/*.png
+graduate_admission_prediction/artifacts/eda_plots/
+graduate_admission_prediction/artifacts/eda_scatter/
+
+# Keep the placeholder so the directory exists after cloning
+!graduate_admission_prediction/artifacts/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db

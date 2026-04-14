@@ -16,6 +16,18 @@ from pipeline.validator import Validator
 
 BASE_DIR = os.path.dirname(__file__)
 ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
+PIPELINE_LOG = os.path.join(ARTIFACTS_DIR, "pipeline_log.json")
+
+
+def _log_step(step: str) -> None:
+    try:
+        with open(PIPELINE_LOG) as f:
+            log = json.load(f)
+    except FileNotFoundError:
+        log = {}
+    log[step] = True
+    with open(PIPELINE_LOG, "w") as f:
+        json.dump(log, f, indent=2)
 
 
 def main(csv_path: str) -> None:
@@ -24,11 +36,16 @@ def main(csv_path: str) -> None:
 
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
+    # Reset log at start of each run
+    with open(PIPELINE_LOG, "w") as f:
+        json.dump({}, f)
+
     # --- Data Loading ---
     logger.info("Loading data from %s", csv_path)
     loader = DataLoader()
     df = loader.load(csv_path)
     logger.info("Loaded %d rows", len(df))
+    _log_step("Data Loading")
 
     # --- EDA ---
     logger.info("Running EDA")
@@ -47,6 +64,7 @@ def main(csv_path: str) -> None:
     scatter_dir = os.path.join(ARTIFACTS_DIR, "eda_scatter")
     eda.scatter_plots(df, save_dir=scatter_dir)
     logger.info("Saved scatter plots to %s", scatter_dir)
+    _log_step("EDA")
 
     # --- Cleaning ---
     logger.info("Cleaning data")
@@ -55,18 +73,21 @@ def main(csv_path: str) -> None:
     scaler_path = os.path.join(ARTIFACTS_DIR, "scaler.joblib")
     cleaner.save_scaler(scaler_path)
     logger.info("Saved scaler to %s", scaler_path)
+    _log_step("Cleaning")
 
     # --- Feature Selection ---
     logger.info("Selecting features")
     selector = FeatureSelector()
     features, corr = selector.select(df_clean)
     logger.info("Selected features: %s", features)
+    _log_step("Feature Selection")
 
     # --- Splitting ---
     logger.info("Splitting data (80/20)")
     splitter = Splitter()
     X_train, X_test, y_train, y_test = splitter.split(df_clean, features)
     logger.info("Train size: %d, Test size: %d", len(X_train), len(X_test))
+    _log_step("Splitting")
 
     # --- Model Training ---
     trainer = ModelTrainer()
@@ -80,6 +101,7 @@ def main(csv_path: str) -> None:
     rf_model = trainer.train_random_forest(X_train, y_train)
     rf_path = trainer.save_model(rf_model, "random_forest", ARTIFACTS_DIR)
     logger.info("Saved random forest model to %s", rf_path)
+    _log_step("Model Training")
 
     # --- Cross-Validation ---
     validator = Validator()
@@ -91,6 +113,7 @@ def main(csv_path: str) -> None:
     logger.info("Cross-validating Random Forest")
     rf_cv = validator.cross_validate(rf_model, X_train, y_train)
     logger.info("RF CV — mean_r2: %.4f, std_r2: %.4f", rf_cv["mean_r2"], rf_cv["std_r2"])
+    _log_step("Cross-Validation")
 
     # --- Evaluation ---
     evaluator = Evaluator()
@@ -116,6 +139,7 @@ def main(csv_path: str) -> None:
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
     logger.info("Saved metrics to %s", metrics_path)
+    _log_step("Evaluation")
 
 
 if __name__ == "__main__":
